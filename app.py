@@ -24,8 +24,7 @@ df_lpa = pd.read_csv(lpa_path)
 df_hallazgos = pd.read_csv(hallazgos_path)
 
 
-# CONVERSIÓN DE FECHAS PARA FILTRADO
-# Diccionario para homologar los meses en español al formato estándar de pandas
+# CONVERSIÓN DE FECHAS FLEXIBLE (Soporta AAAA-MM-DD y DD mes AAAA)
 meses_es = {
     'ene': 'Jan', 'feb': 'Feb', 'mar': 'Mar', 'abr': 'Apr', 
     'may': 'May', 'jun': 'Jun', 'jul': 'Jul', 'ago': 'Aug', 
@@ -33,12 +32,19 @@ meses_es = {
 }
 
 def formatear_fecha(df_col):
-    # Reemplaza los meses en español por inglés para que pd.to_datetime no falle
-    fecha_aux = df_col.astype(str).str.lower()
-    for es, en in meses_es.items():
-        fecha_aux = fecha_aux.str.replace(es, en, regex=False)
-    # Quitamos el .dt.date para mantenerlo como objeto Timestamp nativo de Pandas
-    return pd.to_datetime(fecha_aux, format='%d %b %Y', errors='coerce')
+    # Intentar primero la conversión directa (útil para formatos estándar como YYYY-MM-DD)
+    fechas_transformadas = pd.to_datetime(df_col, errors='coerce')
+    
+    # Para las celdas que queden vacías (NaT), intentar el formato alternativo en español (ej. "29 may 2026")
+    vacias = fechas_transformadas.isna()
+    if vacias.any():
+        fecha_aux = df_col[vacias].astype(str).str.lower()
+        for es, en in meses_es.items():
+            fecha_aux = fecha_aux.str.replace(es, en, regex=False)
+        
+        fechas_transformadas[vacias] = pd.to_datetime(fecha_aux, format='%d %b %Y', errors='coerce')
+        
+    return fechas_transformadas
 
 # Creamos columnas datetime ocultas solo para el comportamiento del filtro
 df_lpa['Fecha_DT'] = formatear_fecha(df_lpa['Fecha de vencimiento'])
@@ -96,6 +102,8 @@ with tab3:
     
     # Obtener las fechas mínimas y máximas disponibles entre ambos archivos para inicializar el filtro
     fechas_todas = pd.concat([df_lpa['Fecha_DT'].dropna(), df_hallazgos['Fecha_DT'].dropna()])
+    
+    # Valores por defecto si la base de datos llegara a estar completamente vacía
     min_date = fechas_todas.min().date() if not fechas_todas.empty else pd.Timestamp.now().date()
     max_date = fechas_todas.max().date() if not fechas_todas.empty else pd.Timestamp.now().date()
 
