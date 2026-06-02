@@ -37,7 +37,8 @@ def formatear_fecha(df_col):
     fecha_aux = df_col.astype(str).str.lower()
     for es, en in meses_es.items():
         fecha_aux = fecha_aux.str.replace(es, en, regex=False)
-    return pd.to_datetime(fecha_aux, format='%d %b %Y', errors='coerce').dt.date
+    # Quitamos el .dt.date para mantenerlo como objeto Timestamp nativo de Pandas
+    return pd.to_datetime(fecha_aux, format='%d %b %Y', errors='coerce')
 
 # Creamos columnas datetime ocultas solo para el comportamiento del filtro
 df_lpa['Fecha_DT'] = formatear_fecha(df_lpa['Fecha de vencimiento'])
@@ -95,8 +96,8 @@ with tab3:
     
     # Obtener las fechas mínimas y máximas disponibles entre ambos archivos para inicializar el filtro
     fechas_todas = pd.concat([df_lpa['Fecha_DT'].dropna(), df_hallazgos['Fecha_DT'].dropna()])
-    min_date = fechas_todas.min() if not fechas_todas.empty else pd.Timestamp.now().date()
-    max_date = fechas_todas.max() if not fechas_todas.empty else pd.Timestamp.now().date()
+    min_date = fechas_todas.min().date() if not fechas_todas.empty else pd.Timestamp.now().date()
+    max_date = fechas_todas.max().date() if not fechas_todas.empty else pd.Timestamp.now().date()
 
     # Componente visual para seleccionar el rango
     rango_fechas = st.date_input(
@@ -108,9 +109,11 @@ with tab3:
 
     # Validar que el usuario haya seleccionado ambas fechas (Inicio y Fin) antes de filtrar
     if isinstance(rango_fechas, tuple) and len(rango_fechas) == 2:
-        start_date, end_date = rango_fechas
+        # Convertimos las fechas del date_input a pd.Timestamp para homologarlas con Pandas
+        start_date = pd.Timestamp(rango_fechas[0])
+        end_date = pd.Timestamp(rango_fechas[1])
         
-        # Aplicamos el filtro de fecha a los dataframes que usan las gráficas
+        # Aplicamos el filtro de fecha de forma segura
         df_hall_crit_fil = df_hall_crit[(df_hall_crit['Fecha_DT'] >= start_date) & (df_hall_crit['Fecha_DT'] <= end_date)]
         df_lpa_crit_fil = df_lpa_crit[(df_lpa_crit['Fecha_DT'] >= start_date) & (df_lpa_crit['Fecha_DT'] <= end_date)]
         df_hallazgos_fil = df_hallazgos[(df_hallazgos['Fecha_DT'] >= start_date) & (df_hallazgos['Fecha_DT'] <= end_date)]
