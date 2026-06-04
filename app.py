@@ -1,4 +1,3 @@
-
 import plotly.express as px
 import os
 import streamlit as st
@@ -63,6 +62,7 @@ df_lpa_vencida = df_lpa[df_lpa['Estado'].str.contains("En progreso - vencida", c
 
 # 🔴 Hallazgos
 df_hall_vencida = df_hallazgos[df_hallazgos['Estado'].str.contains("En progreso - vencida", case=False, na=False)].copy()
+df_hall_pendiente_vencida = df_hallazgos[df_hallazgos['Estado'].str.contains("Pendiente - vencida", case=False, na=False)].copy()
 df_hall_a_tiempo = df_hallazgos[df_hallazgos['Estado'].str.contains("En progreso - a tiempo", case=False, na=False)].copy()
 
 
@@ -112,6 +112,7 @@ with tab3:
         df_lpa_ven_fil = df_lpa_vencida[(df_lpa_vencida['Fecha_DT'] >= start_date) & (df_lpa_vencida['Fecha_DT'] <= end_date)]
         
         df_hall_ven_fil = df_hall_vencida[(df_hall_vencida['Fecha_DT'] >= start_date) & (df_hall_vencida['Fecha_DT'] <= end_date)]
+        df_hall_pven_fil = df_hall_pendiente_vencida[(df_hall_pendiente_vencida['Fecha_DT'] >= start_date) & (df_hall_pendiente_vencida['Fecha_DT'] <= end_date)]
         df_hall_at_fil = df_hall_a_tiempo[(df_hall_a_tiempo['Fecha_DT'] >= start_date) & (df_hall_a_tiempo['Fecha_DT'] <= end_date)]
         
         df_hallazgos_fil = df_hallazgos[(df_hallazgos['Fecha_DT'] >= start_date) & (df_hallazgos['Fecha_DT'] <= end_date)]
@@ -120,6 +121,7 @@ with tab3:
         df_lpa_sr_fil = df_lpa_sin_realizar
         df_lpa_ven_fil = df_lpa_vencida
         df_hall_ven_fil = df_hall_vencida
+        df_hall_pven_fil = df_hall_pendiente_vencida
         df_hall_at_fil = df_hall_a_tiempo
         df_hallazgos_fil = df_hallazgos
         df_lpa_fil = df_lpa
@@ -145,6 +147,21 @@ with tab3:
         st.plotly_chart(fig_hall_ven, use_container_width=True)
     else:
         st.success("No hay hallazgos vencidos en el rango seleccionado")
+
+    # NUEVO Gráfico 1B: Hallazgos Pendientes - Vencidos
+    st.subheader("🟠 Hallazgos Postergados (Pendiente - vencida)")
+    if not df_hall_pven_fil.empty:
+        df_hall_pven_fil["Etiqueta"] = (
+            df_hall_pven_fil["Ubicación"].astype(str) + "<br>" +
+            df_hall_pven_fil["Parte responsable"].astype(str) + "<br>" +
+            df_hall_pven_fil["Fecha de vencimiento"].astype(str)
+        )
+        fig_hall_pven = px.bar(df_hall_pven_fil, x="Etiqueta", y=[1]*len(df_hall_pven_fil), title="🟠 PENDIENTE - VENCIDA")
+        fig_hall_pven.update_traces(marker_color="coral", hovertemplate="Ubicación: %{x}<br>Estado: Pendiente - Vencida<extra></extra>")
+        fig_hall_pven.update_layout(xaxis_title="", yaxis_title="Cantidad", plot_bgcolor="white", paper_bgcolor="white", yaxis=dict(gridcolor="lightgray"), height=400)
+        st.plotly_chart(fig_hall_pven, use_container_width=True)
+    else:
+        st.success("No hay hallazgos con estatus 'Pendiente - vencida' en el rango seleccionado")
 
     # Gráfico 2: Hallazgos A Tiempo (En progreso - A tiempo)
     st.subheader("🟡 Hallazgos de Atención Obligatoria (En progreso - a tiempo)")
@@ -226,6 +243,7 @@ with tab3:
             def categorizar_hall(estado):
                 est = str(estado).lower()
                 if "completada - a tiempo" in est: return "🟢 Completadas a tiempo"
+                elif "pendiente - vencida" in est: return "🟠 Pendiente - Vencida"
                 elif "vencida" in est: return "🔴 Vencidas (Crítico)"
                 elif "a tiempo" in est: return "🟡 En Progreso (A tiempo)"
                 return "Otros Estados"
@@ -239,7 +257,9 @@ with tab3:
                 color_discrete_map={
                     "🟢 Completadas a tiempo": "#2ca02c",
                     "🔴 Vencidas (Crítico)": "#d62728",
-                    "🟡 En Progreso (A tiempo)": "#ff7f0e",
+                    "💖 Pendiente - Vencida": "#ff7f0e", # Se mapea automáticamente por el label del dataframe
+                    "🟠 Pendiente - Vencida": "#ff7f0e",
+                    "🟡 En Progreso (A tiempo)": "#fdbb2d",
                     "Otros Estados": "#7f7f7f"
                 }
             )
